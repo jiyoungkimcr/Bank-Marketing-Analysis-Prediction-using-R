@@ -1,0 +1,1323 @@
+---
+title: "Bank Marketing Data Analysis"
+author: "Jiyoung Kim - 110075"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::robobook:
+    highlight: kate
+    code_folding: hide
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+
+## 1. Introduction 
+### 1-1. About Dataset
+Our dataset is related to telemarketing campaigns held by a Portuguese banking institution. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit, our variable 'y') would be ('yes') or not ('no') subscribed.
+
+### 1-2. Problem/Task description
+**Main Problem Statement:** Predict if the bank client will subscribe a term deposit(yes/no, binary classification) based on the client's basic information, telemarketing campaign data, and social & economic data.
+
+**Purpose of the project (Why we need this project?):**\
+In the process of building this prediction model, we can also identify what type of clients are more likely to respond positive to the marketing campaign (=identify the factors that makes bank marketing more successful). 
+Nowadays, there are so many new ways of marketing but the one thing all companies always expect from marketing campaign is "Maximum revenue(outcome) with minimum cost that would be wasted on approaching non(negative)-responding clients". Especially, in direct marketing such as telemarketing, it's sometimes costly and the response rate is quite low. Therefore, 'Targeting the right client' must be one of the most important things in this kind of direct marketing. Considering this, main goal of this project is to make a prediction model which can suggest a proper direction, right target client, and strategy for successful cross-selling of the bank products such as term deposit.
+
+**Hypothesis & Research Questions:**\
+
+
+* Client with loan has less chance to subscribe a term deposit than the other.  
+* Client with ceratin type of 'job' has more chance to subscribe a term deposit than the other.
+
+
+### 1-3. Feature Explanation
+#### **Input variables:**  
+###### <span style="color:#127FAF">***Client Personal Info Variables:***</span>  
+1 - age (numeric)  
+2 - job : type of job (categorical:'admin.','blue-collar','entrepreneur','housemaid','management','retired','self-employed','services','student','technician','unemployed','unknown')  
+3 - marital : marital status (categorical: 'divorced','married','single','unknown'; note: 'divorced' means divorced or widowed)  
+4 - education (categorical: 'basic.4y','basic.6y','basic.9y','high.school','illiterate','professional.course','university.degree','unknown')  
+5 - default: has credit in default? (categorical: 'no','yes','unknown')  
+6 - housing: has housing loan? (categorical: 'no','yes','unknown')  
+7 - loan: has personal loan? (categorical: 'no','yes','unknown')  
+
+###### <span style="color:#127FAF">***Variables related with the last contact of the current campaign:***</span>    
+8 - contact: contact communication type (categorical: 'cellular','telephone')  
+9 - month: last contact month of year (categorical: 'jan', 'feb', 'mar', ..., 'nov', 'dec')  
+10 - day_of_week: last contact day of the week (categorical: 'mon','tue','wed','thu','fri')  
+11 - duration: last contact duration, in seconds (numeric). Important note: this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model.  
+
+###### <span style="color:#127FAF">***Variables with other attributes:***</span>  
+12 - campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact)  
+13 - pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric; 999 means client was not previously contacted)  
+14 - previous: number of contacts performed before this campaign and for this client (numeric)  
+15 - poutcome: outcome of the previous marketing campaign (categorical: 'failure','nonexistent','success')  
+
+###### <span style="color:#127FAF">***Social & Economic Variables:***</span>  
+16 - emp.var.rate: employment variation rate - quarterly indicator (numeric)  
+17 - cons.price.idx: consumer price index - monthly indicator (numeric)  
+18 - cons.conf.idx: consumer confidence index - monthly indicator (numeric)  
+19 - euribor3m: euribor 3 month rate - daily indicator (numeric)  
+20 - nr.employed: number of employees - quarterly indicator (numeric)  
+  
+#### **Output variable (Target):**  
+21 - y - has the client subscribed a term deposit? (binary: 'yes','no')\    
+    
+      
+      
+#### Import Libraries
+You can unfold the code if you want to check what libraries are used
+```{r}
+suppressPackageStartupMessages({
+library(tidyverse)
+library(rapportools)
+library(data.table) # datafile reading
+library(dplyr)
+library(dlookr)
+library(magrittr)
+library(tidyr)
+library(lubridate)
+library(DT)
+library(gmodels)
+library(sqldf)
+library(caret)      # rocr analysis
+library(ROCR)       # rocr analysis
+library(kableExtra) # nice table html formating 
+library(gridExtra)  # arranging ggplot in grid
+library(rpart)      # decision tree
+library(rpart.plot) # decision tree plotting
+library(caTools)    # split 
+library(randomForest) #randomforests
+library(class) # knn
+library(ipred) # bagging
+library(adabag) # boosting
+library(purrr)
+library(fastDummies)
+library(DMwR)
+  
+#visualization
+library(ggplot2)
+library(ggmosaic)
+library(corrplot)
+library(ggthemes)
+library(sqldf)
+library(readr)
+library(plotly)
+library(cowplot)
+library(plotROC)
+library(ggpubr)
+    
+library(C50)
+library(e1071)
+library(pROC)
+library(PRROC)
+    
+library(rattle)
+library(RColorBrewer)
+    
+library(forecast)
+library(zoo)
+library(DescTools)
+library(knitr)
+library(VIM)
+library(mice)
+library(psych)
+library(gmodels)
+library(caTools)
+library(Epi)
+library(tidyverse)
+})
+```
+
+#### Load Dataset
+```{r}
+bank <- read.csv(file = "/Users/jiyoungkim/Desktop/SGH 2 sem/SLM class/Project/bank-additional/bank-additional-full.csv", 
+                 sep =";", stringsAsFactors = T)
+str(bank)
+```
+```{r}
+summary(bank)
+```
+
+\  
+\  
+      
+## 2. Data Preprocessing & Cleaning
+### 2-1. Duplicate Rows 
+```{r, class.source='fold-show'}
+sum(duplicated(bank))
+```
+Let's drop all these duplicated rows
+```{r, class.source='fold-show'}
+bank = bank %>% distinct
+```
+
+
+### 2-2. Missing values
+As checking the missing values, NA is not the only missing ones, we actually need to check several possible cases as below:
+
+* NA values 
+* Blank/Space values 
+* Unknown values
+
+```{r, class.source='fold-show'}
+sum(is.na(bank)) # turns out there is no NA
+```
+
+```{r, class.source='fold-show'}
+sum(is.empty(" ", trim = FALSE)) # turns out there is no Blank/Space values
+```
+
+Even if we don't have any NA or blank values, the table below shows that there are still some variables with a large portion of 'unknown' values 
+```{r, class.source='fold-show'}
+colSums(bank=="unknown")
+```
+
+It's such a large number to just drop all of those 'unknown' values. Considering that those values take around 30% portion out of whole obs((12718/41188)*100 = 30.88%), deleting all of them at once is quite huge sacrifice and may even affect the distribution of our Target Variable 'y'./  
+Therefore, I would rather decide how to deal with these missing values only after I check the distribution of 'y' in those 'unknown' values by each variable. And then, I will check the frequency distribution within each variable who has 'unknown' to decide ideal value for imputation. 
+
+### 2-3. Outliers
+Diagnose outlier of numerical variables (in here, with_mean = arithmetic average of including outliers in the variable)
+```{r}
+diagnose_outlier(bank) %>% 
+  mutate(outliers = outliers_mean / with_mean) %>% 
+  arrange(desc(outliers))
+```
+
+Based on the 'outliers_ratio' and outliers score (= outliers_mean/with_mean), 'previous', 'campaign', 'duration' seems top 3 variables with quite severe outliers. Let's decide either Delete or Transform by looking at the distribution plot of these 3 variables.
+
+```{r}
+bank %>%
+  plot_outlier(diagnose_outlier(bank) %>% 
+                 filter(outliers_ratio >= 5) %>% 
+                 select(variables) %>% 
+                 unlist())
+```
+**Summary of Outliers Analysis**\
+**1) Variable 'duration'**: This variable represents the last contact duration, in seconds (numeric). However, as warned, this variable is inappropriate to include as one of X variables for our prediction model because it's not possible to know the duration before a call is performed.
+Therefore, we will just delete this variable.\
+**2) Variable 'campaign'**: This variable represents the number of contacts performed during this campaign and for this client (including previous contacts). Even if there are some values including last contacts, it's too much or not very useful to have the contacts more than 10 times for one client, in marketing aspect. Therefore, I decided to drop all the values >10 in this variable.\
+**3) Variable 'previous'**: Most of the value is concentrated on '0' which means that there were no any other contacts before this campaign and for this client. So, I decided to binning this variable into a categorical variable with 2 level like No (0) / Yes(1) (in the meaning of was there any previous contact or no) since there are so small proportion of value over 1 time! Accordingly, their data type will also be changed from numeric to the factor with 2 levels \   
+
+### 2-3.1. Transform variables based on Outliers analysis results
+
+```{r, class.source='fold-show'}
+# Drop the variable 'duration'
+bank_final = bank %>% 
+  select(-duration)
+
+# Drop all the values > 10 within the variable 'campaign'
+bank_final = bank_final %>% 
+  filter(campaign <= 10)
+
+# Binning the variable 'previous' (num -> binary categorical variable)
+bank_final = bank_final %>% 
+  mutate(previous = if_else(previous >= 1, "1", "0"))
+bank_final$previous <- as.factor(bank_final$previous)
+```
+
+
+## 3. EDA
+Now, let's deal with additional Data Preprocessing & Cleaning step (like dealing with missing data) aligned with EDA part.  
+
+### 3-1. Univariate, Bivariate Analysis
+#### **Target Variable**
+We can see that our data is highly imbalanced like Yes:No = 11%:89% which means that we have too small proportion of 'Yes' to use this data for modelling. Therefore, after EDA part, as we prepare our dataset for modelling, we will use SMOTE (Synthetic Minority Over-Sampling Technique) to deal with this Imabalanced data issue. 
+```{r}
+ggplot(data = bank_final, aes(x=y, label = scales::percent(prop.table(stat(count)))))+
+  geom_bar(stat = "count", aes(fill=y))+
+  geom_text(stat = 'count', position = position_dodge(.9), vjust = -0.5, size = 3.5) +
+  scale_y_continuous(labels = scales::percent) +
+  stat_count(geom = "text", colour = "black", size = 3.5, aes(label = ..count..),position=position_stack(vjust=0.5))+
+  labs(title="Distribution of y variable (Deposit)", x="Deposit", y="Count") + scale_fill_brewer(palette="Set3")
+
+```
+
+
+#### **Categorical Variables** 
+Just as an overview, let's start with checking the levels with the biggest proportion within each categorical variables.
+```{r}
+diagnose_category(bank_final) %>%
+  filter(rank == 1)
+```
+Based on the result, we can glimpse what kind of attributes are represented by our clients pool.
+For example, we can see a large portion of clients who have admin jobs, married, university degree, no credit in default, housing loan, no personal loan, had cellularphone for contact, last contact in May, last contact in thursday, and had no previous contact before this campaign
+
+
+
+#### **1) Job** 
+```{r}
+job_y <- sqldf(
+"select job, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select job, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+job_y
+```
+In the table above, you can see the 'unknown' level (which is regarded as kind of 'missing value') shows nothing unique or insightful in here. They have similar distribution like other levels and nothing special, so it will not hurt our dataset very much by dropping this unknown values in 'job' variable. Let's drop it.
+
+```{r, class.source='fold-show'}
+bank_final = bank_final %>% filter(job != "unknown")
+bank_final$job <- factor(bank_final$job)
+```
+
+Below plot is the overall distribution of variable 'job' after dropping those 330 unknown values. (visualized plot and data table)
+```{r}
+# Set up default parameters for mosaic plots
+mosaic_theme = theme(axis.text.x = element_text(angle = 90,
+                                                hjust = 1,
+                                                vjust = 0.5),
+                     axis.text.y = element_blank(),
+                     axis.ticks.y = element_blank())
+
+job_vis <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, job), fill = y)) + mosaic_theme +
+  xlab("job") + scale_fill_brewer(palette="Set2")
+
+ggplotly(job_vis)
+```
+
+
+```{r}
+job_y_new <- sqldf(
+"select job, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select job, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+job_y_new
+```
+**Insights from 'Job' variable**   
+- As we can see above, clients who are student(31.7%) or retired(25.7%) had subscribed the 'Deposit (yes)' relatively more than clients with other jobs.  
+- Since we have high positive deposit subscription ratio from retired clients, it might be also good idea to think of creating another cross-selling product (it can be loan, fund, etc...) customized to retired clients.    
+- One of our hypothesis that we set at the beginning, "Client with ceratin type of 'job' has more chance to subscribe a term deposit than the other." turns out to be true. And the result shows the clients who are student or retired or unemployed are more likely to subscribe the Deposit.
+    
+      
+
+#### **2) Marital** 
+```{r}
+marital_y <- sqldf(
+"select marital, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select marital, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+marital_y
+```
+Also in the 'marital' variable, 'unknown' level doesn't give any special insights and it's really small portion as 68 obs. So, it doesn't harm our data distribution even if we delete it. 
+```{r, class.source='fold-show', echo=FALSE}
+# Dropping 'unknown' level from the variable 'marital'
+bank_final = bank_final %>% filter(marital != "unknown")
+bank_final$marital <- factor(bank_final$marital)
+```
+
+
+```{r}
+marital_v <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, marital), fill = y)) + mosaic_theme +
+  xlab("marital status") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set2")
+
+ggplotly(marital_v)
+```
+
+
+```{r}
+marital_y_new <- sqldf(
+"select marital, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select marital, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+marital_y_new
+```
+**Insights from 'Marital' variable**  
+As you can see, there is no severe difference in Deposit subscription ratio between single(14.18%), divorced(10.45%), married(10.35%) clients. Single clients are only slightly more subscribing Deposit.  
+  
+    
+    
+#### **3) Education** 
+```{r}
+education_y <- sqldf(
+"select education, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select education, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+education_y
+```
+There are two things we need to preprocess based on above table result.  
+1) Need to drop 'illiterate' variable which has risk of giving wrong influence on our modelling with extremely small obs. I will drop it.  
+2) Different from previous categorical variables, 'Education' variable actually has quite large amount of 'unknown' level(1556) and Deposit (yes) ratio within it is also quite high comparing to other level. Therefore, we will integrate this unknown level into the university.degree which has 3rd highest Deposit(yes)_ratio right below unknown and has very similar distribution of y with unknown level.  
+
+```{r, class.source='fold-show'}
+# Drop 'illiterate' level
+bank_final = bank_final %>% filter(education != "illiterate")
+# Integrate 'unknown' level into 'university.degree' level
+bank_final = bank_final %>% 
+  dplyr::mutate(education = recode(education, "unknown" = "university.degree"))
+
+bank_final$education <- factor(bank_final$education)
+```
+
+After preprocessing those 2 points, the distribution looks like below.
+```{r}
+education_y_new <- sqldf(
+"select education, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select education, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+education_y_new
+```
+
+```{r}
+education_vis<- ggplot(education_y_new, aes(education, yes_ratio)) +
+  geom_point(aes(color = education, size = total)) +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+  labs(title = "Deposit(yes) ratio by Education",
+        x = "Education", y = "Deposit(yes) ratio(%)") + theme(text = element_text(face = "bold")) +
+  scale_colour_brewer()
+
+ggplotly(education_vis)
+```
+**Insights from 'education' variable**  
+Clients with university degree has the highest ratio of Deposit Subscription followed by professional.course and high school.  
+  
+  
+    
+      
+#### **4) Default**
+```{r}
+# setting default parameters for crosstables
+crosstable_function = function(df, var1, var2){
+  # df: dataframe containing both columns to cross
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = T,
+             prop.c = F,
+             prop.t = F,
+             prop.chisq = F,
+             dnn = c(var1, var2))
+}
+
+
+crosstable_function(bank_final, "default", "y")
+```
+For 'Default'(credit in default?) variable, since they only have 3 clients with 'Yes' for deposit, it is literally hard to use for our modelling for analysis even if we do the Oversampling. So, I decided to drop this variable.
+
+```{r, class.source='fold-show'}
+# Dropping the variable 'default'
+bank_final = bank_final %>% 
+  select(-default)
+```
+
+
+
+
+#### **5) Housing** 
+```{r}
+housing_y <- sqldf(
+"select housing, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select housing, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+housing_y
+```
+we will just drop the 'unknown' level of housing variable since it doesn't give much special information.
+
+
+```{r, class.source='fold-show'}
+# Dropping 'unknown' level from the variable 'housing'
+bank_final = bank_final %>% filter(housing != "unknown")
+bank_final$housing <- factor(bank_final$housing)
+```
+
+```{r}
+housing_v <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, housing), fill = y)) + mosaic_theme +
+  xlab("housing loan") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set4")
+
+ggplotly(housing_v)
+```
+Housing loan variable doesn't show that much big difference in Deposit Subscription ratio, still, the clients with housing loan are slightly more having Deposit subscription(yes).  
+  
+    
+    
+#### **6) Loan** 
+```{r}
+bank_final$loan <- factor(bank_final$loan)
+loan_y <- sqldf(
+"select loan, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select loan, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+loan_y
+```
+```{r}
+loan_v <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, loan), fill = y)) + mosaic_theme +
+  xlab("Loan") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set2")
+
+ggplotly(loan_v)
+```
+We have more clients with no Loan than with loan. However, deposit(yes) ratio according to Loan variable doesn't have big difference between Yes and No loan. It's similar. Therefore, the very first hypothesis we set in the beginning of this project => "Client with loan has less chance to subscribe a term deposit than the other." turns out to be kind of true but only with very slight difference from clients who doesn't have loans. So, let me conclude that loan and deposit subscription doesn't show that much relation in here.
+  
+    
+    
+#### **7) Contact (marketing related variable)** 
+```{r}
+contact_y <- sqldf(
+"select contact, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select contact, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+contact_y
+```
+
+```{r}
+contact_v <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, contact), fill = y)) + mosaic_theme +
+  xlab("Contact") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set3")
+
+ggplotly(contact_v)
+```
+The clients with communication type 'cellular' has way much more Yes ratio in Deposit Subscription. It is of course thing considering that everyone is using smartphone(wireless phone) nowadays and they usually put mobile phone number as their first contact info. So, as doing telemarketing campaign, it may be more effective if we not only consider calling but also the additional mobile marketing campaign that can be performed through smartphone app or text message at the same time.  
+  
+    
+      
+#### **8) Month** 
+```{r}
+month_y <- sqldf(
+"select month, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select month, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+month_y
+```
+```{r}
+bank_final$month <- factor(bank_final$month, levels=c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))
+
+month_vis <- ggplot(bank_final, aes(month, fill=y)) + geom_bar(position="stack") + scale_fill_brewer(palette="Set2") + ylab("Deposit(yes/no)") + ggtitle("Distribution of Client and Deposit by Last contact Month")
+
+ggplotly(month_vis)
+```
+```{r}
+month_y$month <- factor(month_y$month, levels = month_y$month[order(-month_y$yes_ratio)])
+
+month_vis2 <- ggplot(month_y, aes(x=month, y=yes_ratio)) +
+  geom_bar(width=0.5, stat = "identity", fill="#fb8d61") +
+  labs(title="Deposit(yes) ratio by Last Contact Month") +
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(month_vis2)
+```
+The month that clients are mostly contacted as the last contact is May, July, August, Jun as you can see in the first plot. (there is no contact at all on Jan and Feb) However, the customer with high Deposit(yes) ratio is ironically Mar, Dec, Sept, Oct. It is actually very intersting that this plot result shows "Calling a lot of customers don't gurantee high possibility of getting Deposit Subscription from clients. Rather, the month that the bank contacted very less customers turns out having high return on Deposit Subscription!". So, it's important to keep this insight in our mind, and check if this month variable has strong influence on our target variable in our model.  
+  
+    
+      
+      
+#### **9) Day of Week** 
+```{r}
+weekday_y <- sqldf(
+"select day_of_week, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select day_of_week, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+weekday_y
+```
+```{r}
+bank_final$day_of_week <- factor(bank_final$day_of_week, levels=c("mon", "tue", "wed", "thu", "fri"))
+
+weekday_vis <- ggplot(bank_final, aes(day_of_week, fill=y)) + geom_bar(position="stack") + ylab("Deposit(yes/no)") + ggtitle("Distribution of Client and Deposit by Day of Week")
+
+ggplotly(weekday_vis)
+```
+```{r}
+weekday_y$day_of_week <- factor(weekday_y$day_of_week, levels = weekday_y$day_of_week[order(-weekday_y$yes_ratio)])
+
+weekday_vis2 <- ggplot(weekday_y, aes(x=day_of_week, y=yes_ratio)) +
+  geom_bar(width=0.5, stat = "identity", fill="#2ebfc4") +
+  labs(title="Deposit(yes) ratio by Day of Week") +
+  theme(axis.text.x = element_text(angle = 90))
+
+ggplotly(weekday_vis2)
+```
+  
+The result shows that there are certain week days that have more positive response on Deposit subscription such as Thursday, Tuesday, Wednesday. However, in overall, there are not much prominent gap of Deposit (yes/no) between each week day.  
+  
+    
+      
+#### **10) Previous** 
+```{r}
+crosstable_function(bank_final, "previous", "y")
+```
+```{r}
+previous_vis <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, previous), fill = y)) + mosaic_theme +
+  xlab("previous contact(yes/no)") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set3")
+
+ggplotly(previous_vis)
+```
+  
+The results shows that the clients who have got contacted previously before this campaign are more likely to subscribe Deposit(yes). So we can say that re-reaching to the clients can be regarded as quite important in this telemarketing campaign.  
+  
+    
+    
+
+#### **10) Poutcome** 
+```{r}
+poutcome_y <- sqldf(
+"select poutcome, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select poutcome, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+poutcome_y
+```
+
+```{r}
+poutcome_vis <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, poutcome), fill = y)) + mosaic_theme +
+  xlab("previous campaign outcome") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set2")
+
+ggplotly(poutcome_vis)
+```
+  
+Based on the above results, we can conclude that the clients who had contacted for 'previous campaign' at least once have more chance to positively respond and subscribe 'Deposit'. Even if the previous outcome was failure, it still shows higher deposit(yes) ratio than the clients who have never been contacted for marketing.  
+  
+    
+      
+  
+  
+#### **Numerical Variables** 
+For numerical variable, we will not check every each of them, but rather focus on some variables with important insights.
+
+#### **1) Age** 
+```{r}
+age_y <- sqldf(
+"select age, total, deposit_yes, deposit_no, round(100.*deposit_yes/total, 2) as yes_ratio, round(100.*deposit_no/total, 2) as no_ratio
+from(
+select age, count(*) as total, sum(case when y = 'yes' then 1 else 0 end) as deposit_yes, sum(case when y = 'no' then 1 else 0 end) as deposit_no 
+from bank_final
+group by 1
+) order by yes_ratio DESC")
+
+age_y
+```
+
+```{r}
+boxplot(bank_final$age, main="Age plot", yaxt="n", xlab="age", horizontal=TRUE)
+```
+
+
+```{r}
+ggplot(bank_final,aes(x=bank_final$age,fill=bank_final$y)) + geom_histogram(binwidth=1) +
+  labs(y= "Count", x="Age", title = "Age")
+```
+
+Based on the plots above, we can think of 2 marketing campaign strategies. 1) targetting mid-young~mid aged people like 30s-40s.; 2) Think of the strategies to target aged clients or very young clients like 20s. Especially, I think it's good to target young clients in 20s because the Deposit distribution shows that clients from 25 y.o. are starting to increase in subscribing Deposit. And retaining young clients are beneficial to the bank since they can turn into the long-term loyal clients once the rapport is built.  
+
+Anyway, I will tranform this Age variable(numeric) into categorical variable with grouping age range as 'Low/Mid/High'
+
+```{r}
+bank_final = bank_final %>% 
+  mutate(age = if_else(age > 60, "high", if_else(age > 30, "mid", "low")))
+bank_final$age <- factor(bank_final$age)
+```
+
+Histogram plot of all numeric variables in overall
+```{r}
+bank_final %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram()
+```
+
+Based on what we see in this histogram plot, we can check the variable campaign and pdays in detail since pdays somehow shows outlier distribution.
+
+#### **2) Campaign**
+
+```{r}
+campaign_vis <- bank_final %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(y, campaign), fill = y)) + mosaic_theme +
+  xlab("number of contacts during this campaign") + ylab("Deposit Subscription") + scale_fill_brewer(palette="Set2")
+
+ggplotly(campaign_vis)
+```
+We can see that too much campaign contacting to the client rather decreases the Deposit Subscription. (like more than 5 times). So, it seems like it's adequate to do campaign contact only below 5 times at maximum.  
+  
+    
+
+#### **3) Pdays**
+```{r}
+ggplot(data = bank_final, aes(x=bank_final$pdays))+
+  geom_histogram(bins=30)+
+  labs(x="Number of days since last contact", y="Count")
+```
+If you see the pdays distribution, it is absolutely showing the distribution that is hard to use for our analysis since most of the values are 999 which means they have not previously contacted. This happened maybe because we dropped some variables and unknown levels in the previous steps while doing EDA. Anyway, we already have very similar variable called 'previous' which shows if the client was contacted last time(before this campaign) or not. So, we can just drop this pdays variable.
+
+```{r}
+bank_final = bank_final %>% 
+  select(-pdays)
+```
+  
+    
+      
+      
+### **3-2. Correlation**
+Correlation plot of numeric variables.
+```{r}
+bank_num <-select_if(bank_final, is.numeric) # only selecting numeric variables
+
+bank_num %>%
+  cor() %>%
+  corrplot(method = "number",
+           type = "lower", 
+           tl.cex = 0.8,
+           tl.srt = 45)
+```
+We can see there is high correlation between euribor3m and emp.var.rate / cons.price.idx and emp.var.rate / emp.var.rate and nr.employed / euribor3m and nr.employed. Most variables in social, economic attribute variables show high correlation each other and it's of course thing. So, in here, I will drop the variable emp.var.rate and euribor3m which seems having high correlation with 2-3 other variables at the same time. 
+```{r}
+bank_final = bank_final %>% 
+  select(-emp.var.rate)
+bank_final = bank_final %>% 
+  select(-euribor3m)
+```
+Let's check the correlation again.
+```{r}
+bank_num <-select_if(bank_final, is.numeric) # only selecting numeric variables
+
+bank_num %>%
+  cor() %>%
+  corrplot(method = "number",
+           type = "lower", 
+           tl.cex = 0.8,
+           tl.srt = 45)
+```
+Now, it's okay.
+
+    
+## 4. Data Preparation for Modelling (final pre-processing)
+### **Categorical variable to 1/0 level, Dummy variable**
+From now on, we will do the last pre-processing to prepare our data ideal for modelling. To use several machine learning models, it is important to transform all of our categorical variables into numerically expresssed variables. To do so, we will change variables with Yes/No 2 levels into 1/0 and variables with more than 2 levels into dummy variables.
+```{r, class.source='fold-show'}
+# month
+bank_final$month <- ifelse(bank_final$month == 'jan', 1,
+                ifelse(bank_final$month == 'feb', 2,
+                ifelse(bank_final$month == 'mar', 3,
+                ifelse(bank_final$month == 'apr', 4,
+                ifelse(bank_final$month == 'may', 5,
+                ifelse(bank_final$month == 'jun', 6,
+                ifelse(bank_final$month == 'jul', 7,
+                ifelse(bank_final$month == 'aug', 8,
+                ifelse(bank_final$month == 'sep', 9,
+                ifelse(bank_final$month == 'oct', 10,
+                ifelse(bank_final$month == 'nov', 11, 12)))))))))))
+
+# day_of_week
+bank_final$day_of_week <- ifelse(bank_final$day_of_week == 'mon', 1,
+                ifelse(bank_final$day_of_week == 'tue', 2,
+                ifelse(bank_final$day_of_week == 'wed', 3,
+                ifelse(bank_final$day_of_week == 'thu', 4, 5))))
+
+```
+
+```{r, class.source='fold-show'}
+# variables with 2 levels into 1/0
+bank_final$housing <- ifelse(bank_final$housing == 'no', 0, 1)
+bank_final$loan <- ifelse(bank_final$loan == 'no', 0, 1)
+bank_final$contact <- ifelse(bank_final$contact == 'cellular', 0, 1) #contact has only 2 levels with cellular and telephone
+bank_final$previous <- ifelse(bank_final$previous == '0', 0, 1)
+bank_final$y <- ifelse(bank_final$y == 'no', 0, 1)
+
+```
+
+
+```{r, class.source='fold-show'}
+# variables with more than 2 levels into dummy variables
+bank_dummies <- dummy_cols(.data=bank_final, select_columns = c("age", "job", "marital", "education", "poutcome"), remove_first_dummy = FALSE)
+bank_dummies
+```
+```{r, class.source='fold-show'}
+bank_ready = bank_dummies[, -c(1,2,3,4,12)]
+bank_ready <- bank_ready[c(11, 1:10, 12:37)]
+str(bank_ready)
+```
+
+Finally, our dataset is ready with numeric variables.
+
+```{r}
+write.csv(bank_ready, "/Users/jiyoungkim/Desktop/SGH 2 sem/SLM class/Project/bank_final.csv")
+```
+
+
+
+### **Data Splitting (Train:Test=70:30)**
+```{r, class.source='fold-show'}
+require(caTools)
+set.seed(1)
+# Train and Test
+sample = sample.split(bank_ready, SplitRatio = 0.7)
+bank_train = subset(bank_ready, sample==TRUE)
+bank_test = subset(bank_ready, sample==FALSE)
+
+```
+
+###**SMOTE (method to deal with imbalanced data)**
+We will oversample the minority group(y=1) using SMOTE method.
+
+```{r, class.source='fold-show'}
+prop.table(table(bank_train$y)) # distribution of deposit y 0/1 in our train set
+```
+
+```{r, class.source='fold-show'}
+bank_train_smote <- bank_train
+bank_train_smote$y = as.factor(bank_train_smote$y)
+bank_train_smote <- SMOTE(form = y~., data = bank_train_smote, perc.over = 100, perc.under =200)
+
+prop.table(table(bank_train_smote$y)) # check distribution of deposit y 0/1 in our train set after SMOTE (now, it's 50:50)
+```
+```{r}
+bank_test$y = as.factor(bank_test$y)
+```
+
+
+## 5. Modelling
+
+```{r}
+# Modelling Pipeline we need for visualization of Model Evaluation
+# plotting importance from predictive models into two panels
+fun_imp_ggplot_split = function(model){
+  # model: model used to plot variable importances
+  
+  if (class(model)[1] == "ranger"){
+    imp_df = model$variable.importance %>% 
+      data.frame("Overall" = .) %>% 
+      rownames_to_column() %>% 
+      rename(variable = rowname) %>% 
+      arrange(-Overall)
+  } else {
+    imp_df = varImp(model) %>%
+      rownames_to_column() %>% 
+      rename(variable = rowname) %>% 
+      arrange(-Overall)
+  }
+  
+  # first panel (half most important variables)
+  gg1 = imp_df %>% 
+    slice(1:floor(nrow(.)/2)) %>% 
+    ggplot() +
+    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
+    geom_bar() +
+    coord_flip() +
+    xlab("Variables") +
+    ylab("Importance") +
+    theme(legend.position = "none")
+  
+  imp_range = ggplot_build(gg1)[["layout"]][["panel_params"]][[1]][["x.range"]]
+  imp_gradient = scale_fill_gradient(limits = c(-imp_range[2], -imp_range[1]),
+                                     low = "#132B43", 
+                                     high = "#56B1F7")
+  
+  # second panel (less important variables)
+  gg2 = imp_df %>% 
+    slice(floor(nrow(.)/2)+1:nrow(.)) %>% 
+    ggplot() +
+    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
+    geom_bar() +
+    coord_flip() +
+    xlab("") +
+    ylab("Importance") +
+    theme(legend.position = "none") +
+    ylim(imp_range) +
+    imp_gradient
+  
+  # arranging together
+  gg_both = plot_grid(gg1 + imp_gradient,
+                      gg2)
+  
+  return(gg_both)
+}
+
+# plotting two performance measures
+fun_gg_cutoff = function(score, obs, measure1, measure2) {
+  # score: predicted scores
+  # obs: real classes
+  # measure1, measure2: which performance metrics to plot
+  
+  predictions = prediction(score, obs)
+  performance1 = performance(predictions, measure1)
+  performance2 = performance(predictions, measure2)
+  
+  df1 = data.frame(x = performance1@x.values[[1]],
+                   y = performance1@y.values[[1]],
+                   measure = measure1,
+                   stringsAsFactors = F) %>% 
+    drop_na()
+  df2 = data.frame(x = performance2@x.values[[1]],
+                   y = performance2@y.values[[1]],
+                   measure = measure2,
+                   stringsAsFactors = F) %>% 
+    drop_na()
+  
+  # df contains all the data needed to plot both curves
+  df = df1 %>% 
+    bind_rows(df2)
+  
+  # extracting best cut for each measure
+  y_max_measure1 = max(df1$y, na.rm = T)
+  x_max_measure1 = df1[df1$y == y_max_measure1, "x"][1]
+  
+  y_max_measure2 = max(df2$y, na.rm = T)
+  x_max_measure2 = df2[df2$y == y_max_measure2, "x"][1]
+  
+  txt_measure1 = paste("Best cut for", measure1, ": x =", round(x_max_measure1, 3))
+  txt_measure2 = paste("Best cut for", measure2, ": x =", round(x_max_measure2, 3))
+  txt_tot = paste(txt_measure1, "\n", txt_measure2, sep = "")
+  
+  # plotting both measures in the same plot, with some detail around.
+  gg = df %>% 
+    ggplot() +
+    aes(x = x,
+        y = y,
+        colour = measure) +
+    geom_line() +
+    geom_vline(xintercept = c(x_max_measure1, x_max_measure2), linetype = "dashed", color = "gray") +
+    geom_hline(yintercept = c(y_max_measure1, y_max_measure2), linetype = "dashed", color = "gray") +
+    labs(caption = txt_tot) +
+    theme(plot.caption = element_text(hjust = 0)) +
+    xlim(c(0, 1)) +
+    ylab("") +
+    xlab("Threshold")
+  
+  return(gg)
+}
+
+# creating classes according to score and cut
+fun_cut_predict = function(score, cut) {
+  # score: predicted scores
+  # cut: threshold for classification
+  
+  classes = score
+  classes[classes > cut] = 1
+  classes[classes <= cut] = 0
+  classes = as.factor(classes)
+  
+  return(classes)  
+}
+
+# computing AUPR
+aucpr = function(obs, score){
+  # obs: real classes
+  # score: predicted scores
+  
+  df = data.frame("pred" = score,
+                  "obs" = obs)
+  
+  prc = pr.curve(df[df$obs == 1, ]$pred,
+                 df[df$obs == 0, ]$pred)
+  
+  return(prc$auc.davis.goadrich)
+}
+
+# plotting PR curve
+gg_prcurve = function(df) {
+  # df: df containing models scores by columns and the last column must be
+  #     nammed "obs" and must contain real classes.
+  
+  # init
+  df_gg = data.frame("v1" = numeric(), 
+                     "v2" = numeric(), 
+                     "v3" = numeric(), 
+                     "model" = character(),
+                     stringsAsFactors = F)
+  
+  # individual pr curves
+  for (i in c(1:(ncol(df)-1))) {
+    x1 = df[df$obs == 1, i]
+    x2 = df[df$obs == 0, i]
+    prc = pr.curve(x1, x2, curve = T)
+    
+    df_prc = as.data.frame(prc$curve, stringsAsFactors = F) %>% 
+      mutate(model = colnames(df)[i])
+    
+    # combining pr curves
+    df_gg = bind_rows(df_gg,
+                      df_prc)
+    
+  }
+  
+  gg = df_gg %>% 
+    ggplot() +
+    aes(x = V1, y = V2, colour = model) +
+    geom_line() +
+    xlab("Recall") +
+    ylab("Precision")
+  
+  return(gg)
+}
+```
+
+
+###**5-1) Logistic Regression** 
+Let's start building logistic regression model first.
+```{r}
+logistic <- glm(y~., data=bank_train_smote, family="binomial")
+summary(logistic)
+```
+We see some variables with high p-value(>0.05) which means not significant variable in our model. Therefore, we will create a model with only significant variables in the next step.  
+
+####**Choose appropriate Cut/Threshold**  
+Before getting into the model evaluation part, let's think of what metrics are proper for us to check the model performance in this telemarketing business problem. For this situation, the most important priority is 'if we can precisely find clients who are willing to subscribe to a Deposit product (TP=true positive)'. And at the same time, we also need to consider 'if we didn't miss potential clients who may actually subscribe for Deposit but classified as they will not' (FN=False Negative). Considering this point, I think F-score is an ideal metric we can use in here in that it is typically used to measure how accurate the 'classification' is made. When F-score high, the Precision and Recall is also high. Therefore, I will more focus on the F score(f1 score) which consider both of Precision and Recall than Accuracy.  
+
+```{r}
+logistic_train_score = predict(logistic, newdata = bank_train_smote, type = "response")
+logistic_test_score = predict(logistic, newdata = bank_test, type = "response")
+```
+
+
+```{r}
+measure_train = fun_gg_cutoff(logistic_train_score, bank_train_smote$y, 
+                              "acc", "f")
+measure_train +
+  geom_vline(xintercept = c(0.4, 0.5), 
+             linetype = "dashed")
+```
+We can see the best cut(threshold) for both F score and Accuracy in training set prediction is 0.4.  
+
+Then, let's check real test set threshold.
+```{r}
+logistic_train_cut = 0.4
+measure_test = fun_gg_cutoff(logistic_test_score, bank_test$y, "acc", "f")
+measure_test + geom_vline(xintercept = c(0.5, logistic_train_cut), linetype = "dashed")
+```
+Considering the amount of Tradeoff between Accuracy and F-score, it's better to choose our threshold as '0.68' for test set prediction. (because it shows the highest F1 score with quite high accuracy too.)
+
+####**Confusion Matrix & Model Evaluation Metrics**
+```{r}
+logistic_test_class = fun_cut_predict(logistic_test_score, 0.68)
+# matrix
+logistic_test_confm = confusionMatrix(logistic_test_class, bank_test$y, 
+                                      positive = "1",
+                                      mode = "everything")
+logistic_test_confm
+```
+
+###**5-2) Logistic Regression with selected variables (Stepwise selection)**
+
+```{r echo=T, results='hide'}
+logistic2 <- step(logistic, direction = "both")
+```
+
+```{r}
+summary(logistic2)
+```
+As we can see above, through Stepwise variable selection, there are only significant variables left in our LR model (Except for eduaction_basic.4y)  
+
+
+```{r}
+logistic2_train_score = predict(logistic2, newdata = bank_train_smote, type = "response")
+logistic2_test_score = predict(logistic2, newdata = bank_test, type = "response")
+```
+
+
+```{r}
+measure_train2 = fun_gg_cutoff(logistic2_train_score, bank_train_smote$y, "acc", "f")
+measure_train2 + geom_vline(xintercept = c(0.4, 0.5), linetype = "dashed")
+```
+
+We can see the best cut(threshold) for both F score and Accuracy in training set prediction is 0.4.  
+
+Then, let's check real test set threshold.
+```{r}
+logistic2_train_cut = 0.4
+measure_test2 = fun_gg_cutoff(logistic2_test_score, bank_test$y, "acc", "f")
+measure_test2 + geom_vline(xintercept = c(0.5, logistic2_train_cut), linetype = "dashed")
+```
+For test set prediction, the ideal threshold should be 0.67 considering it gives us the highest F-score with moderate accuracy.
+
+####**Confusion Matrix & Model Evaluation Metrics**
+```{r}
+logistic2_test_class = fun_cut_predict(logistic2_test_score, 0.67)
+# matrix
+logistic2_test_confm = confusionMatrix(logistic2_test_class, bank_test$y, 
+                                      positive = "1",
+                                      mode = "everything")
+logistic2_test_confm
+```
+Comparing to the first full LR model, we can see that most of the metrics didn't change that much. Metrics like Sensitivity, F1 Score, Recall have increased a bit than the first full model. 
+
+
+###**5-3) Decision Tree**
+There are 4 representative parameters we choose in Decision Tree. cp(Complexity Parameter), minsplit(min of observations), xval(of closs validation), maxdepth(max depth of any node). In here, the lesser cp is, the complexity increases. Therefore, finding the optimal CP is important. Considering this, we will proceed parameter tuning for this cp.
+```{r}
+set.seed(1004)
+dtree1 <- rpart(y~., data = bank_train_smote, cp = 0.1^20) # full tree model 
+rpart.plot(dtree1)
+```
+
+```{r}
+# Find the optimal CP
+dtree1$cptable
+plotcp(dtree1)
+cp_optimal <- dtree1$cptable[which(dtree1$cptable[,"xerror"]==min(dtree1$cptable[,"xerror"])),"CP"]
+```
+```{r, class.source='fold-show'}
+cp_optimal
+```
+
+Somehow, 2 optimal values for cp came out (0.0005825566 and 0.0003120839), so i will use a bit larger one which is 0.0005825566 as our optimal cp. 
+```{r}
+dtree_optimal <- prune(dtree1, 0.0005825566) 
+```
+
+
+```{r}
+#Plot of prunned tree model with optimal cp
+rpart.plot(dtree_optimal)
+```
+As you can see, we still have too many variables which are not significant actually. Therefore, we will build another one more decision tree model with filtered variables based on this importance plot as below.
+```{r}
+fun_imp_ggplot_split(dtree_optimal)
+```
+
+```{r}
+tree_train_score = predict(dtree_optimal,newdata = bank_train_smote,type = "prob")[, 2]
+tree_test_score = predict(dtree_optimal, newdata = bank_test,type = "prob")[, 2]
+```
+
+####**Choose appropriate Cut/Threshold**  
+Trainset
+```{r}
+measure_train = fun_gg_cutoff(tree_train_score, bank_train_smote$y,"acc", "f")
+measure_train + geom_vline(xintercept = c(0.4, 0.5), linetype = "dashed")
+```
+You can see that the best cut for F-score is around 0.4 for training set' prediction.
+
+Testset
+```{r}
+tree_train_cut = 0.4
+measure_test = fun_gg_cutoff(tree_test_score, bank_test$y, "acc", "f")
+measure_test + geom_vline(xintercept = c(tree_train_cut, 0.5), linetype = "dashed")
+```
+In test set' prediction, best threshold figure for F-score is 0.6. Let's check the confusion matrix and metrics of this tree model.  
+
+####**Confusion Matrix & Model Evaluation Metrics**
+```{r}
+tree_test_class = fun_cut_predict(tree_test_score, 0.6)
+tree_test_confm = confusionMatrix(tree_test_class, bank_test$y, positive = "1", mode = "everything")
+tree_test_confm
+```
+Comparing this Tree model to the last LR2 model, this tree model shows some better metrics in F1 score, Recall, and Sensitivity.
+Let's compare this model's performance with other models in the next step "Model Evaluation"
+
+
+###**5-4) Decision Tree with selected variables (based on variable importance)**
+This time, I'll only include top 10 variables in terms of variable importance that we saw above.
+```{r}
+set.seed(1004)
+dtree2 <- rpart(y~nr.employed+cons.conf.idx+cons.price.idx+contact+month+poutcome_success+campaign+day_of_week+poutcome_failure+education_university.degree, data = bank_train_smote, cp = 0.1^20) # tree model with filtered variables based on their importance
+rpart.plot(dtree2)
+```
+
+```{r}
+# Find the optimal CP
+dtree2$cptable
+plotcp(dtree2)
+cp_optimal <- dtree1$cptable[which(dtree2$cptable[,"xerror"]==min(dtree2$cptable[,"xerror"])),"CP"]
+```
+
+```{r, class.source='fold-show'}
+cp_optimal
+```
+
+```{r}
+dtree2_optimal <- prune(dtree2, cp_optimal) 
+```
+
+
+```{r}
+#Plot of prunned tree model with optimal cp
+rpart.plot(dtree2_optimal)
+```
+
+
+```{r}
+tree2_train_score = predict(dtree2_optimal, newdata = bank_train_smote,type = "prob")[, 2]
+tree2_test_score = predict(dtree2_optimal, newdata = bank_test,type = "prob")[, 2]
+```
+
+####**Choose appropriate Cut/Threshold**  
+Trainset
+```{r}
+measure_train2 = fun_gg_cutoff(tree2_train_score, bank_train_smote$y,"acc", "f")
+measure_train2 + geom_vline(xintercept = c(0.4, 0.5), linetype = "dashed")
+```
+You can see that the best cut for F-score is around 0.4 for training set' prediction.
+
+Testset
+```{r}
+tree2_train_cut = 0.4
+measure_test2 = fun_gg_cutoff(tree2_test_score, bank_test$y, "acc", "f")
+measure_test2 + geom_vline(xintercept = c(tree2_train_cut, 0.5), linetype = "dashed")
+```
+In test set' prediction, best threshold figure for F-score is 0.7. Let's check the confusion matrix and metrics of this tree model.  
+
+####**Confusion Matrix & Model Evaluation Metrics**
+```{r}
+tree2_test_class = fun_cut_predict(tree2_test_score, 0.7)
+tree2_test_confm = confusionMatrix(tree2_test_class, bank_test$y, positive = "1", mode = "everything")
+tree2_test_confm
+```
+Comparing to the previous DT1 Model with full variable, this one shows only better metrics in Accuracy, Sensitivity, Specificity, Precision and F1 score. However, in overall, nothing much severe gap between these two models.
+
+
+###**5-5) K-nearest Neighbor**
+Last model is KNN, a non-parametric classification method.
+```{r, class.source='fold-show'}
+knn <- train(y~., data=bank_train_smote, method ="knn", trControl = trainControl("cv", number = 5), preProcess = c("range"), tuneLength=10)
+plot(knn)
+```
+
+```{r, class.source='fold-show'}
+pred.knn <- predict(knn, newdata=bank_test)
+```
+
+```{r}
+### Confusion matrix
+knn_test_confm = confusionMatrix(pred.knn, bank_test$y, positive = "1", mode = "everything")
+knn_test_confm
+```
+Based on this result, let's compare all models together in the next Step.
+
+
+
+## 6. Model Evaluation
+###ROC Curve & Precision-Recall AUC Curve
+
+
+```{r}
+score_test = data.frame("Logistic Regression Full" = logistic_test_score,
+                        "Logistic Regression Stepwise" = logistic2_test_score,
+                        "Decision Tree Full" = tree_test_score,
+                        "Decision Tree Var selected(imp)" = tree2_test_score,
+                        "obs" = as.numeric(bank_test$y) - 1)
+
+
+roc_test = score_test %>%
+  gather(key = "Method", value = "score", -obs) %>% 
+  ggplot() +
+  aes(d = obs,
+      m = score,
+      color = Method) +
+  geom_roc(labels = F, pointsize = 0, size = 0.6) +
+  xlab("Specificity") +
+  ylab("Sensitivity") +
+  ggtitle("ROC Curve", subtitle = "Validation dataset")
+
+prcurve_test = gg_prcurve(score_test) + ggtitle("PR Curve", subtitle = "Validation dataset")
+
+curves_test = ggarrange(roc_test, prcurve_test, 
+                        common.legend = T,
+                        legend = "bottom")
+```
+
+```{r}
+print(curves_test)
+```
+I wanted to show the knn model at the same time on the plot, but not available to drive ROC, AUC attribute from knn model due to the internal error. 
+
+```{r}
+df_final = data.frame("Model" = c("Logistic Regression Full",
+                                  "Logistic Regression Stepwise",
+                                  "Decision Tree Full",
+                                  "Decision Tree Var selected(imp)",
+                                  "KNN"),
+                      "AUROC" = c(auc(bank_test$y, logistic_test_score),
+                                  auc(bank_test$y, logistic2_test_score),
+                                  auc(bank_test$y, tree_test_score),
+                                  auc(bank_test$y, tree2_test_score),
+                                  NA),
+                      "AUPR" = c(aucpr(bank_test$y, logistic_test_score),
+                                 aucpr(bank_test$y, logistic2_test_score),
+                                 aucpr(bank_test$y, tree_test_score),
+                                 aucpr(bank_test$y, tree2_test_score), NA),
+                      "Cut" = c(0.68, 0.67, 0.6, 0.7,NA),
+                      "Accuracy" = c(logistic_test_confm[["overall"]][["Accuracy"]],
+                                     logistic2_test_confm[["overall"]][["Accuracy"]],
+                                     tree_test_confm[["overall"]][["Accuracy"]],
+                                     tree2_test_confm[["overall"]][["Accuracy"]], 0.6896),
+                      "F1" = c(logistic_test_confm[["byClass"]][["F1"]],
+                               logistic2_test_confm[["byClass"]][["F1"]],
+                               tree_test_confm[["byClass"]][["F1"]],
+                               tree2_test_confm[["byClass"]][["F1"]], 0.31180),
+                      stringsAsFactors = F)
+df_final %>% 
+  arrange(-F1)
+```
+(*AUROC = area under the ROC curve, AUPR = area under the precision-recall curve)  
+
+Based on the above results, we can say the Decision Tree model with Variable selected using variable importance has the highes performance in terms of F1 score and Accuracy. As we discussed at the beginning of modelling, our ideal metrics to evaluate model's performance were Precision, Recall and F1 Score than the Accuracy itself. Becuase telemarketing business is an area in need to precisely target the right clients as possible but at the same time, not losing the potential clients.  
+Therefore, we can say the best model is Decision Tree model with selected variables.  
+
+## 7. Conclusion / Summary
+Through whole process of this bank telemarketing data analysis project, I could realize the importance of 'targeting' and 'segmenting' in the marketing campaign. Especially through EDA part, I can gain a lot of insights regarding what can be the important and meaningful factor of sucessful bank telemarketing.  
+There were several challenges I encountered during the project as follows:  
+1) There were quite large amount of "unknown" value, so I had to drop some of them. It was not that much sacrifice since I checked distribution of 'Deposit(y)' for each variables before I drop them. Still, it might be better to have less unknown values in the dataset for the better analysis.;  
+2) Since our target variable 'y' was so imbalanced as 0:1 = 89%:11%, the original data itself is not that good for analysis. To deal with this issue, I did SMOTE(Synthetic Minority Oversampling Technique). However, this method still has potential risk of overfitting due to over sampling the minority. Luckily, in our modelling part, I did not identify any severe overfitting, but still, SMOTE itself is not the perfect method for dealing with imbalanced data.;   
+3) By looking back on the process, I realized that I couldn't drive good insights or use social & economic variables (which were mostly numeric) in our analysis. It might be better if I could also check those variables in detail.  
+
